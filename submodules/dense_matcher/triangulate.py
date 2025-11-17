@@ -13,7 +13,10 @@ from model_selection import model_type, pre_trained_model_types, select_model
 from utils import DotDict, matches_from_flow, getView2World, point_world2depth, depth2point_world, get_projected_patch_color, map_points_to_image
 from ssim import SSIM_v2
 
-
+"""用深度匹配网络代替传统 SIFT+MVS，
+    先三角化得到稀疏但高精度的 3D 点，
+    再用 patch-SSIM 随机扩张，
+    把 COLMAP 稀疏点云快速升级成稠密彩色点云。"""
 
 from argparse import ArgumentParser
 parser = ArgumentParser(description="Triangulate script parameters")
@@ -48,7 +51,7 @@ if args.multi_stage_type not in choices_for_multi_stage_types:
 
 global_optim_iter = 3
 local_optim_iter = 7
-path_to_pre_trained_models = 'pre_trained_models/'
+path_to_pre_trained_models = '/home/Binocular3DGS/submodules/dense_matcher/pre_trained_models/'
 matcher, estimate_uncertainty = select_model(args.network_type, args.pre_trained_model, args, global_optim_iter, local_optim_iter,
                                              path_to_pre_trained_models=path_to_pre_trained_models)
 
@@ -101,6 +104,9 @@ extrinsics_all = torch.tensor(extrinsics_all).float().cuda()
 intrinsics_all = torch.tensor(intrinsics_all).float().cuda()
 
 
+# print("[DEBUG] extrinsics_all:", extrinsics_all.size(), extrinsics_all)
+# print("[DEBUG] intrinsics_all:", intrinsics_all.size(), intrinsics_all)
+
 n_images = len(images_list)
 if args.dataset_name == "LLFF":
     llffhold=8
@@ -119,7 +125,7 @@ for idx in ref_indices:
 
 print("reading images ...")
 images = np.stack([imageio.v3.imread(image_name)[..., :3] for image_name in tqdm(images_list)])
-# images = torch.tensor(images).float().cuda()
+images = torch.tensor(images).float().cuda()
 if args.resolution > 1:
     height = height // args.resolution
     width = width // args.resolution
